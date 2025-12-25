@@ -23,9 +23,14 @@ main.ipynb for generating images based on trained model. Generated images are st
 ### Dataset Folders:
 
 Create "images" folder to contain all .tif images.
+
 Create "data" folder to contain .png images, .txt labels, and .json metalabel file. (metalabel file is generated in datasetprocessing.ipynb)
+
+"data" folder used now can be downloaded from the google drive.
+
 Create "val_data" folder to contain .png images and .txt labels for validation (actually this is not used in your training now)
-"data" folder used now can be downloaded from the google drive
+
+"val_data" now contains images starting from "01150".
 
 ## Quick Use Based on trained model:
 
