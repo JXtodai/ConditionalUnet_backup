@@ -1,1 +1,0 @@
-aggregate size large, expansion level 2000
