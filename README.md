@@ -24,8 +24,19 @@ main.ipynb for generating images based on trained model. Generated images are st
 
 Create "images" folder to contain all .tif images.
 Create "data" folder to contain .png images, .txt labels, and .json metalabel file. (metalabel file is generated in datasetprocessing.ipynb)
-
+Create "val_data" folder to contain .png images and .txt labels for validation (actually this is not used in your training now)
 "data" folder used now can be downloaded from the google drive
+
+## Quick Use Based on trained model:
+
+I have trained two models in folders "model" and "model_text". "model" is for the model trained with aggragate size are numerical description while the "model_txt" for text description )
+
+1. Run accelerate config in bash to interactively configurate the training settings. (details can be asked to ChatGPT. I selected "NO" for most questions)
+```bash
+accelerate config
+```
+
+2. Run main.ipynb to generate images with your text input.
 
 ## Usage
 
@@ -40,7 +51,10 @@ accelerate config
 ```bash
 ./train_lora.sh
 ```
-trained models are stored under "./model" (currently two output folders, "model" is for the model trained with aggragate size are numerical description while the "model_txt" for text description )
+trained models are stored under "./model" 
 
 4. Run main.ipynb to generate images and stored in "./output"
 
+## To Do:
+
+Maybe consider how to use val_data and labels inside to quantitatively evaluate the performance. Currently we only rely on huamn eyes to evaluate the performance of generated images.
