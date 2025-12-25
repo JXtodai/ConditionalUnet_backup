@@ -36,7 +36,7 @@ Processed data can be downloaded [here](https://drive.google.com/drive/folders/1
 
 ## Quick Use Based on trained model:
 
-I have trained two models in folders "model" and "model_text". "model" is for the model trained with aggragate size are numerical description while the "model_txt" for text description )
+I have trained two models in folders "model" and "model_text". "model" is for the model trained with aggragate size are numerical description while the "model_txt" for text description.
 
 1. Run accelerate config in bash to interactively configurate the training settings. (details can be asked to ChatGPT. I selected "NO" for most questions)
 ```bash
