@@ -1,0 +1,1 @@
+aggregate size medium, expansion level 2000
