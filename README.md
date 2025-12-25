@@ -32,6 +32,8 @@ Create "val_data" folder to contain .png images and .txt labels for validation (
 
 "val_data" now contains images starting from "01150".
 
+Processed data can be downloaded [here](https://drive.google.com/drive/folders/1RjwB-IKdqAK2N3SpLGTeJ_HwPrpLZ5XZ?usp=drive_link)
+
 ## Quick Use Based on trained model:
 
 I have trained two models in folders "model" and "model_text". "model" is for the model trained with aggragate size are numerical description while the "model_txt" for text description )
