@@ -24,13 +24,13 @@ def parse_args():
         "--output_dir",
         type=Path,
         required=False,
-        default=Path("/home/jixi/project/genai/output_conditional_unet_aggexp_embed/generated_masks"),
+        default=Path("output_conditional_unet_aggexp_embed_overfit_x0pred_cldice2/generated_masks"),
         help="Folder where generated masks will be written.",
     )
     parser.add_argument(
         "--model_dir",
         type=Path,
-        default=Path("/home/jixi/project/genai/output_conditional_unet_aggexp_embed"),
+        default=Path("output_conditional_unet_aggexp_embed_overfit_x0pred_cldice2"),
         help="Folder containing saved `unet` and `scheduler` subfolders.",
     )
     parser.add_argument(
@@ -58,7 +58,7 @@ def parse_args():
     parser.add_argument(
         "--resolution",
         type=int,
-        default=512,
+        default=256,
         help="Image and mask resolution used by the trained UNet.",
     )
     parser.add_argument(
@@ -70,7 +70,7 @@ def parse_args():
     parser.add_argument(
         "--threshold",
         type=float,
-        default=0.8,
+        default=0.5,
         help="Threshold for writing the binary mask.",
     )
     parser.add_argument(
@@ -96,6 +96,33 @@ def parse_args():
         help="Also save the non-thresholded grayscale probability mask.",
     )
     parser.add_argument(
+        "--post_skeletonize",
+        action="store_true",
+        help=(
+            "Erode/skeletonize the binary mask after thresholding to undo the GT-mask dilation used during training. "
+            "When set, the main `_mask.png` is the post-processed thin mask, and the pre-erosion version is saved "
+            "as `_dilated_mask.png` for comparison."
+        ),
+    )
+    parser.add_argument(
+        "--post_skeletonize_mode",
+        choices=["erode", "skeletonize"],
+        default="erode",
+        help=(
+            "How to thin the binary mask. 'erode' uses morphological erosion with --post_skeletonize_kernel "
+            "(matches the inverse of training dilation). 'skeletonize' iteratively erodes to a 1-px centerline."
+        ),
+    )
+    parser.add_argument(
+        "--post_skeletonize_kernel",
+        type=int,
+        default=5,
+        help=(
+            "Odd kernel size for the erosion. Set to the same value as --target_dilate_kernel used during training "
+            "(default 5)."
+        ),
+    )
+    parser.add_argument(
         "--overlay_alpha",
         type=float,
         default=0.65,
@@ -104,7 +131,7 @@ def parse_args():
     parser.add_argument(
         "--sample_count",
         type=int,
-        default=400,
+        default=24,
         help="Randomly sample this many images when --input is a folder.",
     )
     return parser.parse_args()
@@ -215,6 +242,44 @@ def load_aggregate_mask(mask_path, resolution, device, dtype, tf_module, interpo
     mask_tensor = (mask_tensor > 0.5).float()
     mask_tensor = mask_tensor * 2.0 - 1.0
     return mask_tensor.unsqueeze(0).to(device=device, dtype=dtype), mask
+
+
+def erode_binary_mask(mask, kernel_size, torch_module):
+    """Erode a [B,1,H,W] binary mask via -max_pool(-x). Inverse of max-pool dilation."""
+    import torch.nn.functional as F
+
+    if kernel_size < 3 or kernel_size % 2 == 0:
+        raise ValueError(f"--post_skeletonize_kernel must be odd and >= 3, got {kernel_size}")
+    pad = kernel_size // 2
+    work = mask.float()
+    return -F.max_pool2d(-work, kernel_size=kernel_size, stride=1, padding=pad)
+
+
+def skeletonize_binary_mask(mask, torch_module):
+    """Iterative morphological skeletonization to a 1-px centerline. Pure torch, kernel=3."""
+    import torch.nn.functional as F
+
+    work = mask.float().clone()
+    skeleton = torch_module.zeros_like(work)
+    for _ in range(256):
+        eroded = -F.max_pool2d(-work, kernel_size=3, stride=1, padding=1)
+        opened = F.max_pool2d(eroded, kernel_size=3, stride=1, padding=1)
+        residue = (work - opened).clamp(min=0.0)
+        skeleton = torch_module.maximum(skeleton, residue)
+        if eroded.sum().item() == 0:
+            break
+        work = eroded
+    return (skeleton > 0).float()
+
+
+def thin_binary_mask(mask, mode, kernel_size, torch_module):
+    if mode == "erode":
+        thinned = erode_binary_mask(mask, kernel_size, torch_module)
+    elif mode == "skeletonize":
+        thinned = skeletonize_binary_mask(mask, torch_module)
+    else:
+        raise ValueError(f"Unknown post_skeletonize_mode: {mode}")
+    return (thinned > 0.5).float()
 
 
 def tensor_to_grayscale_image(mask, image_cls, torch_module):
@@ -359,6 +424,17 @@ def main():
         binary_mask = (soft_mask > args.threshold).float()
 
         output_stem = f"{image_path.stem}_agg{aggregate_class}_exp{expansion_label}_combo{combo_id_value}"
+
+        if args.post_skeletonize:
+            thin_mask = thin_binary_mask(
+                binary_mask, args.post_skeletonize_mode, args.post_skeletonize_kernel, torch
+            )
+            dilated_path = args.output_dir / f"{output_stem}_dilated_mask.png"
+            tensor_to_grayscale_image(binary_mask, Image, torch).save(dilated_path)
+
+            binary_mask = thin_mask
+            print(f"Wrote pre-thinning mask: {dilated_path}")
+
         binary_path = args.output_dir / f"{output_stem}_mask.png"
         binary_mask_image = tensor_to_grayscale_image(binary_mask, Image, torch)
         binary_mask_image.save(binary_path)
