@@ -1,0 +1,413 @@
+from __future__ import annotations
+
+import argparse
+import csv
+import random
+from pathlib import Path
+
+
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description=(
+            "Generate crack masks from RGB images with a Baseline 1 conditional DDPM UNet "
+            "(SNR-weighted MSE, no aggregate-mask input, no class-label conditioning)."
+        )
+    )
+    parser.add_argument(
+        "--input",
+        type=Path,
+        required=False,
+        default=Path("/home/jixi/dataset/Test_conditionalUnet/input"),
+        help="Input image file or folder of images.",
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=Path,
+        required=False,
+        default=Path("output_conditional_unet_aggexp_embed_full_x0pred_cldice6_baseline1/generated_masks"),
+        help="Folder where generated masks will be written.",
+    )
+    parser.add_argument(
+        "--model_dir",
+        type=Path,
+        default=Path("output_conditional_unet_aggexp_embed_full_x0pred_cldice6_baseline1"),
+        help="Folder containing saved `unet` and `scheduler` subfolders.",
+    )
+    parser.add_argument(
+        "--metadata_csv",
+        type=Path,
+        required=False,
+        default=Path("/home/jixi/dataset/Test_conditionalUnet/metadata_exp_agg_combo.csv"),
+        help=(
+            "Optional CSV with filename,expansion,aggregate_class,combo_id columns. Baseline 1 ignores "
+            "these labels at inference (the model has no class conditioning), but when provided the "
+            "labels are included in the output filenames for cross-baseline comparison."
+        ),
+    )
+    parser.add_argument(
+        "--resolution",
+        type=int,
+        default=256,
+        help="Image and mask resolution used by the trained UNet.",
+    )
+    parser.add_argument(
+        "--num_inference_steps",
+        type=int,
+        default=1000,
+        help="Number of DDPM denoising steps.",
+    )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=0.5,
+        help="Threshold for writing the binary mask.",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Optional random seed for repeatable mask generation.",
+    )
+    parser.add_argument(
+        "--device",
+        default=None,
+        help="Device to run on. Defaults to cuda when available, otherwise cpu.",
+    )
+    parser.add_argument(
+        "--dtype",
+        choices=["float32", "float16", "bfloat16"],
+        default="float16",
+        help="Model dtype. Defaults to float16 on cuda, otherwise float32.",
+    )
+    parser.add_argument(
+        "--save_soft_mask",
+        action="store_true",
+        help="Also save the non-thresholded grayscale probability mask.",
+    )
+    parser.add_argument(
+        "--post_skeletonize",
+        action="store_true",
+        help=(
+            "Erode/skeletonize the binary mask after thresholding to undo the GT-mask dilation used during training. "
+            "When set, the main `_mask.png` is the post-processed thin mask, and the pre-erosion version is saved "
+            "as `_dilated_mask.png` for comparison."
+        ),
+    )
+    parser.add_argument(
+        "--post_skeletonize_mode",
+        choices=["erode", "skeletonize"],
+        default="erode",
+        help=(
+            "How to thin the binary mask. 'erode' uses morphological erosion with --post_skeletonize_kernel "
+            "(matches the inverse of training dilation). 'skeletonize' iteratively erodes to a 1-px centerline."
+        ),
+    )
+    parser.add_argument(
+        "--post_skeletonize_kernel",
+        type=int,
+        default=5,
+        help=(
+            "Odd kernel size for the erosion. Set to the same value as --target_dilate_kernel used during training "
+            "(default 5)."
+        ),
+    )
+    parser.add_argument(
+        "--overlay_alpha",
+        type=float,
+        default=0.65,
+        help="Opacity of the generated red mask over the preprocessed input image.",
+    )
+    parser.add_argument(
+        "--sample_count",
+        type=int,
+        default=24,
+        help="Randomly sample this many images when --input is a folder.",
+    )
+    return parser.parse_args()
+
+
+def iter_images(input_path: Path):
+    if input_path.is_file():
+        if input_path.suffix.lower() not in IMAGE_EXTENSIONS:
+            raise ValueError(f"Input file is not a supported image: {input_path}")
+        yield input_path
+        return
+
+    if not input_path.is_dir():
+        raise ValueError(f"Input path does not exist: {input_path}")
+
+    for path in sorted(input_path.iterdir()):
+        if path.name.startswith("._"):
+            continue
+        if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS:
+            yield path
+
+
+def parse_int_label(value, label_name):
+    try:
+        label = int(float(str(value).strip()))
+    except ValueError as exc:
+        raise ValueError(f"{label_name} must be an integer-like value, got {value!r}") from exc
+    return label
+
+
+def load_condition_labels(metadata_csv: Path) -> dict[str, dict[str, int]]:
+    labels = {}
+    with metadata_csv.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        required_columns = {"filename", "expansion", "aggregate_class", "combo_id"}
+        missing_columns = required_columns - set(reader.fieldnames or [])
+        if missing_columns:
+            raise ValueError(
+                f"{metadata_csv} must contain columns: {', '.join(sorted(required_columns))}. "
+                f"Missing: {', '.join(sorted(missing_columns))}"
+            )
+
+        for row_number, row in enumerate(reader, start=2):
+            image_name = row["filename"].strip()
+            expansion_label = parse_int_label(row["expansion"], "expansion")
+            aggregate_class = parse_int_label(row["aggregate_class"], "aggregate_class")
+            combo_id = parse_int_label(row["combo_id"], "combo_id")
+
+            if expansion_label not in (0, 1):
+                raise ValueError(f"Invalid expansion in {metadata_csv} row {row_number}: {expansion_label}")
+            if aggregate_class not in (0, 1, 2):
+                raise ValueError(f"Invalid aggregate_class in {metadata_csv} row {row_number}: {aggregate_class}")
+            if combo_id not in range(6):
+                raise ValueError(f"Invalid combo_id in {metadata_csv} row {row_number}: {combo_id}")
+
+            expected_combo_id = aggregate_class * 2 + expansion_label
+            if combo_id != expected_combo_id:
+                raise ValueError(
+                    f"Invalid combo_id in {metadata_csv} row {row_number}: got {combo_id}, "
+                    f"expected aggregate_class * 2 + expansion = {expected_combo_id}"
+                )
+
+            if image_name in labels:
+                raise ValueError(f"Duplicate image name in metadata CSV: {image_name}")
+            labels[image_name] = {
+                "expansion": expansion_label,
+                "aggregate_class": aggregate_class,
+                "combo_id": combo_id,
+            }
+
+    if not labels:
+        raise ValueError(f"No image labels found in: {metadata_csv}")
+
+    return labels
+
+
+def load_condition_image(image_path, resolution, device, dtype, tf_module, interpolation_mode, image_cls):
+    image = image_cls.open(image_path).convert("RGB")
+    image = tf_module.resize(image, resolution, interpolation=interpolation_mode.BILINEAR)
+    image = tf_module.center_crop(image, [resolution, resolution])
+    image_tensor = tf_module.to_tensor(image)
+    image_tensor = image_tensor * 2.0 - 1.0
+    return image_tensor.unsqueeze(0).to(device=device, dtype=dtype), image
+
+
+def erode_binary_mask(mask, kernel_size, torch_module):
+    """Erode a [B,1,H,W] binary mask via -max_pool(-x). Inverse of max-pool dilation."""
+    import torch.nn.functional as F
+
+    if kernel_size < 3 or kernel_size % 2 == 0:
+        raise ValueError(f"--post_skeletonize_kernel must be odd and >= 3, got {kernel_size}")
+    pad = kernel_size // 2
+    work = mask.float()
+    return -F.max_pool2d(-work, kernel_size=kernel_size, stride=1, padding=pad)
+
+
+def skeletonize_binary_mask(mask, torch_module):
+    """Iterative morphological skeletonization to a 1-px centerline. Pure torch, kernel=3."""
+    import torch.nn.functional as F
+
+    work = mask.float().clone()
+    skeleton = torch_module.zeros_like(work)
+    for _ in range(256):
+        eroded = -F.max_pool2d(-work, kernel_size=3, stride=1, padding=1)
+        opened = F.max_pool2d(eroded, kernel_size=3, stride=1, padding=1)
+        residue = (work - opened).clamp(min=0.0)
+        skeleton = torch_module.maximum(skeleton, residue)
+        if eroded.sum().item() == 0:
+            break
+        work = eroded
+    return (skeleton > 0).float()
+
+
+def thin_binary_mask(mask, mode, kernel_size, torch_module):
+    if mode == "erode":
+        thinned = erode_binary_mask(mask, kernel_size, torch_module)
+    elif mode == "skeletonize":
+        thinned = skeletonize_binary_mask(mask, torch_module)
+    else:
+        raise ValueError(f"Unknown post_skeletonize_mode: {mode}")
+    return (thinned > 0.5).float()
+
+
+def tensor_to_grayscale_image(mask, image_cls, torch_module):
+    mask = mask.detach().float().cpu().clamp(0, 1).squeeze(0).squeeze(0)
+    mask = (mask * 255.0).round().to(dtype=torch_module.uint8).numpy()
+    return image_cls.fromarray(mask, mode="L")
+
+
+def make_red_overlay(base_image, binary_mask_image, image_cls, alpha: float):
+    alpha = max(0.0, min(1.0, alpha))
+    base_image = base_image.convert("RGBA")
+    mask = binary_mask_image.convert("L")
+
+    red_layer = image_cls.new("RGBA", base_image.size, (255, 0, 0, 0))
+    red_alpha = mask.point(lambda value: int(alpha * 255) if value > 0 else 0)
+    red_layer.putalpha(red_alpha)
+    return image_cls.alpha_composite(base_image, red_layer).convert("RGB")
+
+
+def generate_mask(
+    unet,
+    scheduler,
+    image,
+    resolution: int,
+    num_inference_steps: int,
+    generator,
+    torch_module,
+):
+    mask = torch_module.randn(
+        (image.shape[0], 1, resolution, resolution),
+        device=image.device,
+        dtype=image.dtype,
+        generator=generator,
+    )
+
+    scheduler.set_timesteps(num_inference_steps, device=image.device)
+    for timestep in scheduler.timesteps:
+        timestep_batch = torch_module.full(
+            (mask.shape[0],), int(timestep), device=image.device, dtype=torch_module.long
+        )
+        model_input = torch_module.cat([mask, image], dim=1)
+        model_pred = unet(model_input, timestep_batch).sample
+        mask = scheduler.step(model_pred, timestep, mask).prev_sample
+
+    return (mask.clamp(-1, 1) + 1.0) / 2.0
+
+
+def main():
+    args = parse_args()
+    import sys
+
+    import torch
+    import torchvision.transforms.functional as TF
+    from PIL import Image
+    from torchvision.transforms import InterpolationMode
+
+    repo_root = Path(__file__).resolve().parents[1]
+    local_diffusers_src = repo_root / "diffusers" / "src"
+    if local_diffusers_src.exists():
+        sys.path.insert(0, str(local_diffusers_src))
+
+    from diffusers import DDPMScheduler, UNet2DModel
+
+    device = torch.device(args.device or ("cuda" if torch.cuda.is_available() else "cpu"))
+
+    if args.dtype is None:
+        dtype = torch.float16 if device.type == "cuda" else torch.float32
+    else:
+        dtype = {
+            "float32": torch.float32,
+            "float16": torch.float16,
+            "bfloat16": torch.bfloat16,
+        }[args.dtype]
+
+    if device.type == "cpu" and dtype != torch.float32:
+        raise ValueError("CPU inference only supports --dtype float32.")
+
+    unet_dir = args.model_dir / "unet"
+    scheduler_dir = args.model_dir / "scheduler"
+    if not unet_dir.is_dir():
+        raise FileNotFoundError(f"Missing UNet folder: {unet_dir}")
+    if not scheduler_dir.is_dir():
+        raise FileNotFoundError(f"Missing scheduler folder: {scheduler_dir}")
+
+    condition_labels = None
+    if args.metadata_csv is not None and args.metadata_csv.is_file():
+        condition_labels = load_condition_labels(args.metadata_csv)
+    else:
+        print(f"Skipping metadata CSV (not found or not provided): {args.metadata_csv}")
+
+    unet = UNet2DModel.from_pretrained(unet_dir).to(device=device, dtype=dtype)
+    unet.eval()
+    scheduler = DDPMScheduler.from_pretrained(scheduler_dir)
+
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+
+    generator = None
+    if args.seed is not None:
+        generator = torch.Generator(device=device)
+        generator.manual_seed(args.seed)
+
+    image_paths = list(iter_images(args.input))
+    if not image_paths:
+        raise ValueError(f"No supported images found in: {args.input}")
+    if args.input.is_dir() and args.sample_count > 0 and len(image_paths) > args.sample_count:
+        sampler = random.Random(args.seed)
+        image_paths = sorted(sampler.sample(image_paths, args.sample_count))
+        print(f"Randomly selected {len(image_paths)} image(s) from: {args.input}")
+
+    for image_path in image_paths:
+        labels = condition_labels.get(image_path.name) if condition_labels else None
+        image, overlay_base = load_condition_image(image_path, args.resolution, device, dtype, TF, InterpolationMode, Image)
+
+        with torch.no_grad():
+            soft_mask = generate_mask(
+                unet=unet,
+                scheduler=scheduler,
+                image=image,
+                resolution=args.resolution,
+                num_inference_steps=args.num_inference_steps,
+                generator=generator,
+                torch_module=torch,
+            )
+        binary_mask = (soft_mask > args.threshold).float()
+
+        if labels is not None:
+            output_stem = (
+                f"{image_path.stem}_agg{labels['aggregate_class']}_"
+                f"exp{labels['expansion']}_combo{labels['combo_id']}"
+            )
+        else:
+            output_stem = image_path.stem
+
+        if args.post_skeletonize:
+            thin_mask = thin_binary_mask(
+                binary_mask, args.post_skeletonize_mode, args.post_skeletonize_kernel, torch
+            )
+            dilated_path = args.output_dir / f"{output_stem}_dilated_mask.png"
+            tensor_to_grayscale_image(binary_mask, Image, torch).save(dilated_path)
+
+            binary_mask = thin_mask
+            print(f"Wrote pre-thinning mask: {dilated_path}")
+
+        binary_path = args.output_dir / f"{output_stem}_mask.png"
+        binary_mask_image = tensor_to_grayscale_image(binary_mask, Image, torch)
+        binary_mask_image.save(binary_path)
+
+        overlay_path = args.output_dir / f"{output_stem}_red_overlay.png"
+        make_red_overlay(overlay_base, binary_mask_image, Image, args.overlay_alpha).save(overlay_path)
+
+        if args.save_soft_mask:
+            soft_path = args.output_dir / f"{output_stem}_soft_mask.png"
+            tensor_to_grayscale_image(soft_mask, Image, torch).save(soft_path)
+
+        print(f"Wrote generated mask: {binary_path}")
+        print(f"Wrote red overlay: {overlay_path}")
+        if labels is not None:
+            print(
+                f"Labels (output-naming only; model is unconditional on class): "
+                f"combo_id={labels['combo_id']} (aggregate_class={labels['aggregate_class']}, "
+                f"expansion={labels['expansion']})"
+            )
+
+
+if __name__ == "__main__":
+    main()

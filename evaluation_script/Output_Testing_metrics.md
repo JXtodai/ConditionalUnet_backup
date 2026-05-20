@@ -1,0 +1,1 @@
+Create NEW script to evaluate and output the Dice, FID and area matching error for the generation on testing set, which were generated using trial_scripts/batch_generation_baselines.py

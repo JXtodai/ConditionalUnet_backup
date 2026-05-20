@@ -1,0 +1,239 @@
+[
+  {
+    "name": "full_clean_refer",
+    "gen_dir": "/home/jixi/project/genai/output_conditional_unet_aggexp_embed_full_x0pred_cldice6_clean_refer/generated_masks",
+    "n_pairs": 200,
+    "n_both_empty_excluded": 0,
+    "mean_abs_area_error": 0.0084967041015625,
+    "mean_real_area_fraction": 0.009698486328125,
+    "mean_gen_area_fraction": 0.013671875,
+    "mean_real_overlap_ratio": 0.626028171804423,
+    "mean_gen_overlap_ratio": 0.6237818117488299,
+    "geometric_fid_area_fraction": {
+      "gfid": 2.0009350734249916e-05,
+      "n_real": 200,
+      "n_gen": 200,
+      "real_mean": 0.009698486328125,
+      "gen_mean": 0.013671875,
+      "real_std": 0.009016806438708528,
+      "gen_std": 0.0069621694399991845
+    },
+    "geometric_fid_overlap_ratio": {
+      "gfid": 0.0018949649906462196,
+      "n_real": 168,
+      "n_gen": 200,
+      "real_mean": 0.626028171804423,
+      "gen_mean": 0.6237818117488299,
+      "real_std": 0.319999723232874,
+      "gen_std": 0.2765265262357948
+    },
+    "per_combo": {
+      "0": {
+        "n": 30,
+        "mean_abs_area_error": 0.0073201497395833336,
+        "mean_real_area_fraction": 0.0091094970703125,
+        "mean_gen_area_fraction": 0.010853068033854166,
+        "mean_real_overlap_ratio": 0.7494754000695185,
+        "mean_gen_overlap_ratio": 0.6697472883732133
+      },
+      "1": {
+        "n": 26,
+        "mean_abs_area_error": 0.00928497314453125,
+        "mean_real_area_fraction": 0.014606182391826924,
+        "mean_gen_area_fraction": 0.019619868351862982,
+        "mean_real_overlap_ratio": 0.8582584326696947,
+        "mean_gen_overlap_ratio": 0.8789362378190054
+      },
+      "2": {
+        "n": 24,
+        "mean_abs_area_error": 0.011306126912434896,
+        "mean_real_area_fraction": 0.006295522054036458,
+        "mean_gen_area_fraction": 0.010938644409179688,
+        "mean_real_overlap_ratio": 0.6835671221350912,
+        "mean_gen_overlap_ratio": 0.6808119757809923
+      },
+      "3": {
+        "n": 35,
+        "mean_abs_area_error": 0.010770089285714286,
+        "mean_real_area_fraction": 0.012987845284598214,
+        "mean_gen_area_fraction": 0.018024117606026787,
+        "mean_real_overlap_ratio": 0.6102787046505228,
+        "mean_gen_overlap_ratio": 0.6243971716601628
+      },
+      "4": {
+        "n": 49,
+        "mean_abs_area_error": 0.00647159498565051,
+        "mean_real_area_fraction": 0.0077443025550063774,
+        "mean_gen_area_fraction": 0.01163871920838648,
+        "mean_real_overlap_ratio": 0.42229507010606687,
+        "mean_gen_overlap_ratio": 0.4451974952859933
+      },
+      "5": {
+        "n": 36,
+        "mean_abs_area_error": 0.007581075032552083,
+        "mean_real_area_fraction": 0.008375379774305556,
+        "mean_gen_area_fraction": 0.012083265516493056,
+        "mean_real_overlap_ratio": 0.56802485468936,
+        "mean_gen_overlap_ratio": 0.605653772761451
+      }
+    }
+  },
+  {
+    "name": "baseline1",
+    "gen_dir": "/home/jixi/project/genai/output_conditional_unet_aggexp_embed_full_x0pred_cldice6_baseline1/generated_masks",
+    "n_pairs": 200,
+    "n_both_empty_excluded": 0,
+    "mean_abs_area_error": 0.009674530029296875,
+    "mean_real_area_fraction": 0.009698486328125,
+    "mean_gen_area_fraction": 0.013599395751953125,
+    "mean_real_overlap_ratio": 0.626028171804423,
+    "mean_gen_overlap_ratio": 0.3995323561843609,
+    "geometric_fid_area_fraction": {
+      "gfid": 1.9682473167963563e-05,
+      "n_real": 200,
+      "n_gen": 200,
+      "real_mean": 0.009698486328125,
+      "gen_mean": 0.013599395751953125,
+      "real_std": 0.009016806438708528,
+      "gen_std": 0.0069036621381335555
+    },
+    "geometric_fid_overlap_ratio": {
+      "gfid": 0.05513720106888382,
+      "n_real": 168,
+      "n_gen": 195,
+      "real_mean": 0.626028171804423,
+      "gen_mean": 0.3995323561843609,
+      "real_std": 0.319999723232874,
+      "gen_std": 0.25805743900403216
+    },
+    "per_combo": {
+      "0": {
+        "n": 30,
+        "mean_abs_area_error": 0.010640970865885417,
+        "mean_real_area_fraction": 0.0091094970703125,
+        "mean_gen_area_fraction": 0.015655008951822917,
+        "mean_real_overlap_ratio": 0.7494754000695185,
+        "mean_gen_overlap_ratio": 0.5254998664829649
+      },
+      "1": {
+        "n": 26,
+        "mean_abs_area_error": 0.007581857534555288,
+        "mean_real_area_fraction": 0.014606182391826924,
+        "mean_gen_area_fraction": 0.013360243577223558,
+        "mean_real_overlap_ratio": 0.8582584326696947,
+        "mean_gen_overlap_ratio": 0.4637324729862148
+      },
+      "2": {
+        "n": 24,
+        "mean_abs_area_error": 0.011414210001627604,
+        "mean_real_area_fraction": 0.006295522054036458,
+        "mean_gen_area_fraction": 0.011121749877929688,
+        "mean_real_overlap_ratio": 0.6835671221350912,
+        "mean_gen_overlap_ratio": 0.47248364117846414
+      },
+      "3": {
+        "n": 35,
+        "mean_abs_area_error": 0.009548514229910715,
+        "mean_real_area_fraction": 0.012987845284598214,
+        "mean_gen_area_fraction": 0.0144317626953125,
+        "mean_real_overlap_ratio": 0.6102787046505228,
+        "mean_gen_overlap_ratio": 0.4021166022323677
+      },
+      "4": {
+        "n": 49,
+        "mean_abs_area_error": 0.010252660634566327,
+        "mean_real_area_fraction": 0.0077443025550063774,
+        "mean_gen_area_fraction": 0.012838246871014031,
+        "mean_real_overlap_ratio": 0.42229507010606687,
+        "mean_gen_overlap_ratio": 0.27513745521037236
+      },
+      "5": {
+        "n": 36,
+        "mean_abs_area_error": 0.008556365966796875,
+        "mean_real_area_fraction": 0.008375379774305556,
+        "mean_gen_area_fraction": 0.013937632242838541,
+        "mean_real_overlap_ratio": 0.56802485468936,
+        "mean_gen_overlap_ratio": 0.3511970060839164
+      }
+    }
+  },
+  {
+    "name": "baseline2",
+    "gen_dir": "/home/jixi/project/genai/output_conditional_unet_aggexp_embed_full_x0pred_cldice6_baseline2/generated_masks",
+    "n_pairs": 200,
+    "n_both_empty_excluded": 0,
+    "mean_abs_area_error": 0.007704238891601562,
+    "mean_real_area_fraction": 0.009698486328125,
+    "mean_gen_area_fraction": 0.009299087524414062,
+    "mean_real_overlap_ratio": 0.626028171804423,
+    "mean_gen_overlap_ratio": 0.5910490657807999,
+    "geometric_fid_area_fraction": {
+      "gfid": 7.175004991001402e-06,
+      "n_real": 200,
+      "n_gen": 200,
+      "real_mean": 0.009698486328125,
+      "gen_mean": 0.009299087524414062,
+      "real_std": 0.009016806438708528,
+      "gen_std": 0.006368130243588469
+    },
+    "geometric_fid_overlap_ratio": {
+      "gfid": 0.0028813875159871445,
+      "n_real": 168,
+      "n_gen": 184,
+      "real_mean": 0.626028171804423,
+      "gen_mean": 0.5910490657807999,
+      "real_std": 0.319999723232874,
+      "gen_std": 0.27928302324656284
+    },
+    "per_combo": {
+      "0": {
+        "n": 30,
+        "mean_abs_area_error": 0.0063568115234375,
+        "mean_real_area_fraction": 0.0091094970703125,
+        "mean_gen_area_fraction": 0.007848103841145834,
+        "mean_real_overlap_ratio": 0.7494754000695185,
+        "mean_gen_overlap_ratio": 0.7560869549361279
+      },
+      "1": {
+        "n": 26,
+        "mean_abs_area_error": 0.006920447716346154,
+        "mean_real_area_fraction": 0.014606182391826924,
+        "mean_gen_area_fraction": 0.017147357647235576,
+        "mean_real_overlap_ratio": 0.8582584326696947,
+        "mean_gen_overlap_ratio": 0.7719853361123441
+      },
+      "2": {
+        "n": 24,
+        "mean_abs_area_error": 0.007111867268880208,
+        "mean_real_area_fraction": 0.006295522054036458,
+        "mean_gen_area_fraction": 0.005214691162109375,
+        "mean_real_overlap_ratio": 0.6835671221350912,
+        "mean_gen_overlap_ratio": 0.6274593470149141
+      },
+      "3": {
+        "n": 35,
+        "mean_abs_area_error": 0.009568568638392857,
+        "mean_real_area_fraction": 0.012987845284598214,
+        "mean_gen_area_fraction": 0.010767037527901785,
+        "mean_real_overlap_ratio": 0.6102787046505228,
+        "mean_gen_overlap_ratio": 0.5577995981772241
+      },
+      "4": {
+        "n": 49,
+        "mean_abs_area_error": 0.007907478176817601,
+        "mean_real_area_fraction": 0.0077443025550063774,
+        "mean_gen_area_fraction": 0.007742745535714286,
+        "mean_real_overlap_ratio": 0.42229507010606687,
+        "mean_gen_overlap_ratio": 0.47591860584857515
+      },
+      "5": {
+        "n": 36,
+        "mean_abs_area_error": 0.007698906792534722,
+        "mean_real_area_fraction": 0.008375379774305556,
+        "mean_gen_area_fraction": 0.008254157172309028,
+        "mean_real_overlap_ratio": 0.56802485468936,
+        "mean_gen_overlap_ratio": 0.4839966181602292
+      }
+    }
+  }
+]
